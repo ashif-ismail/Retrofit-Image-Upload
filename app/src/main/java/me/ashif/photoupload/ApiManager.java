@@ -9,7 +9,7 @@ import retrofit2.Retrofit;
  */
 
 public class ApiManager {
-    public static final String BASE_URL = "http://*.*.*.*:8080/";
+    public static final String BASE_URL = "http://192.168.42.185:8090/";
     private static Retrofit retrofit = null;
 
     public static Retrofit getClient() {

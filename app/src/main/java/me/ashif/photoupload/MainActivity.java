@@ -16,6 +16,7 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 
 import okhttp3.MediaType;
@@ -61,35 +62,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-
-        if (resultCode == RESULT_OK)
-        switch (requestCode) {
-            case 007:
-                 Uri mUri;
-                if (data == null) {
-                    return;
-                } else
-                    mUri = data.getData();
-                File imageFile = new File(getPath(mUri));
-                postImageToServer(imageFile);
-                break;
-        }
-        super.onActivityResult(requestCode, resultCode, data);
+                File mFile = new File(CommonUtils.getRealPathFromURI(this, data.getData()));
+                postImageToServer(Uri.fromFile(mFile));
     }
 
-    private void postImageToServer(File image) {
+    private void postImageToServer(Uri uri) {
 
         mProgress.setMessage("Uploading Please wait...");
         mProgress.show();
 
-        RequestBody photo = RequestBody.create(MediaType.parse("application/image"), image);
-        RequestBody body = new MultipartBody.Builder()
-//                .type(MultipartBody.FORM)
-                .addFormDataPart("photo", image.getName(), photo)
-                .build();
+        MediaType MEDIA_TYPE = MediaType.parse("image/*");
+        RequestBody body = null;
+        File file = new File(uri.getPath());
+        if (file.exists()) {
+            try {
+                body = RequestBody.create(MEDIA_TYPE, new File(CommonUtils.compressImage(file.getPath())));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            callapi(file,body);
+        }
+    }
 
-
-        Call<ResponseBody> call = mApiService.uploadPhoto(body);
+    private void callapi(File file, RequestBody body) {
+        Call<ResponseBody> call = mApiService.uploadPhoto(MultipartBody.Part.createFormData("sample", file.getName(), body));
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
@@ -110,18 +106,4 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Toast.makeText(getApplicationContext(),s,Toast.LENGTH_SHORT).show();
     }
 
-    public String getPath(Uri uri) {
-        String[] projection = {MediaStore.Images.Media.DATA};
-        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-        cursor.moveToFirst();
-        int columnIndex = cursor.getColumnIndex(projection[0]);
-        String filePath = cursor.getString(columnIndex);
-        Bitmap selectedImage = BitmapFactory.decodeFile(filePath);
-        Log.d("tag", "getPath: " + cursor.getString(column_index));
-        String path = cursor.getString(column_index);
-        cursor.close();
-        return path;
-
-    }
 }
