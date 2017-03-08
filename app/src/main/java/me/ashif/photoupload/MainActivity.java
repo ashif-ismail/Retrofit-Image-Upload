@@ -2,22 +2,15 @@ package me.ashif.photoupload;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
-import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.provider.MediaStore;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -62,8 +55,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                File mFile = new File(CommonUtils.getRealPathFromURI(this, data.getData()));
-                postImageToServer(Uri.fromFile(mFile));
+
+        if (resultCode == RESULT_OK){
+            switch (requestCode){
+                case PICK_IMAGE:
+                    postImageToServer(data.getData());
+                    break;
+            }
+        }
     }
 
     private void postImageToServer(Uri uri) {
@@ -71,35 +70,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mProgress.setMessage("Uploading Please wait...");
         mProgress.show();
 
-        MediaType MEDIA_TYPE = MediaType.parse("image/*");
-        RequestBody body = null;
         File file = new File(uri.getPath());
-        if (file.exists()) {
-            try {
-                body = RequestBody.create(MEDIA_TYPE, new File(CommonUtils.compressImage(file.getPath())));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            callapi(file,body);
-        }
-    }
 
-    private void callapi(File file, RequestBody body) {
-        Call<ResponseBody> call = mApiService.uploadPhoto(MultipartBody.Part.createFormData("sample", file.getName(), body));
+        Log.d("tag", "postImageToServer: " + uri.getPath());
+
+        RequestBody requestFile = RequestBody.create(MediaType.parse("image/jpeg"), file);
+        MultipartBody.Part body = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
+
+
+        Call<ResponseBody> call = mApiService.uploadPhoto(body);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                showToast("Successfully Uploaded");
+                if (response.isSuccessful()) {
+                    showToast("Successfully Uploaded" + response.message());
+                }
+                Log.d("tag", "onResponse: " + response.code());
                 mProgress.dismiss();
             }
 
             @Override
             public void onFailure(Call<ResponseBody> call, Throwable t) {
                 showToast("Failed Uploading image" + " " + t.getMessage());
+                t.printStackTrace();
                 mProgress.dismiss();
 
             }
         });
+
     }
 
     private void showToast(String s) {
